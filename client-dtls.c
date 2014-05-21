@@ -29,7 +29,8 @@ void DatagramClient (FILE* clientInput, CYASSL* ssl) {
 
     while (fgets(sendLine, MAXLINE, clientInput) != NULL) {
         
-       if ( ( CyaSSL_write(ssl, sendLine, strlen(sendLine))) != strlen(sendLine)){
+       if ( ( CyaSSL_write(ssl, sendLine, strlen(sendLine))) != 
+	      strlen(sendLine)) {
             err_sys("SSL_write failed");
         }
 
@@ -68,8 +69,10 @@ int main (int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (CyaSSL_CTX_load_verify_locations(ctx,"../cyassl/certs/ca-cert.pem",0) != SSL_SUCCESS) {
-        fprintf(stderr, "Error loading ../certs/ca-cert.pem, please check the file.\n");
+    if (CyaSSL_CTX_load_verify_locations(ctx,"../cyassl/certs/ca-cert.pem",0) 
+	!= SSL_SUCCESS) {
+        fprintf(stderr, 
+		"Error loading ../certs/ca-cert.pem, please check the file.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -90,10 +93,6 @@ int main (int argc, char** argv) {
 
     signal(SIGINT, sig_handler);
 
-/*    int err = connect(sockfd, (struct sockaddr*) &servAddr, sizeof(servAddr));
-*    if(err < 0)
-*       err_sys("Connect error");
-*/    
     CyaSSL_set_fd(ssl, sockfd);
     if (CyaSSL_connect(ssl) != SSL_SUCCESS){
 	int err1 = CyaSSL_get_error(ssl, 0);
