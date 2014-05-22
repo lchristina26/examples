@@ -1,3 +1,4 @@
 client-udp
 client-dtls
-
+client-dtls-resume
+client-dtls-nonblocking
