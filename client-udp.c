@@ -5,9 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAXLINE 4096
+#define MAXLINE   4096
 #define SERV_PORT 11111
 
+/*send and recieve message function */
 void DatagramClient (FILE* clientInput, int sockfd, 
                      const struct sockaddr* pServAddr, socklen_t servLen){
 
