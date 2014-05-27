@@ -1,4 +1,5 @@
 #include <cyassl/ssl.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <cyassl/options.h>
 #include <netdb.h>
@@ -9,8 +10,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAXLINE 4096
-#define SERV_PORT 11111 
+
+#define MAXLINE 	4096
+#define SERV_PORT 	11111 
+
+enum {
+          TEST_SELECT_FAIL,
+          TEST_TIMEOUT,
+          TEST_RECV_READY,
+          TEST_ERROR_READY
+};
 
 void err_sys (const char* x) {
     perror(x);
@@ -24,66 +33,67 @@ void sig_handler (const int sig) {
 }
 
 /* tcp select using dtls nonblocking function*/
-/*static int dnb_select(int socketfd, int to_sec)
-*{
-*    fd_set 	   recvfds, errfds;
-*    int 	   nfds = socketfd +1;
-*    struct timeval timeout = { (to_sec > 0) ? to_sec : 0, 0};
-*    int            result;
-*
-*    FD_ZERO(&recvfds);
-*    FD_SET(socketfd, &recvfds);
-*    FD_ZERO(&errfds);
-*    FD_SET(socketfd, &errfds);
-*
-*    result = select(nfds, &recvfds, NULL, &errfds, &timeout);
-*    fcntl(socketfd, 
-*    if (result == 0)
-*	return TEST_TIMEOUT;
-*    else if (result > 0) {
-*	if (FD_ISSET(socketfd, &recvfds))
-*	    return TEST_RECV_READY;
-*	else if (FD_ISSET(socketfd, &errfds))
-*	    return TEST_ERROR_READY;
-*    }
-*    return TEST_SELECT_FAIL;
-*}
-*/
+static int dnb_select(int socketfd, int to_sec)
+{
+   
+    fd_set 	   recvfds, errfds;
+    int 	   nfds = socketfd +1;
+    struct timeval timeout = { (to_sec > 0) ? to_sec : 0, 0};
+    int            result;
+
+    FD_ZERO(&recvfds);
+    FD_SET(socketfd, &recvfds);
+    FD_ZERO(&errfds);
+    FD_SET(socketfd, &errfds);
+
+    result = select(nfds, &recvfds, NULL, &errfds, &timeout);
+    
+    if (result == 0)
+	return TEST_TIMEOUT;
+    else if (result > 0) {
+	if (FD_ISSET(socketfd, &recvfds))
+	    return TEST_RECV_READY;
+	else if (FD_ISSET(socketfd, &errfds))
+	    return TEST_ERROR_READY;
+    }
+    return TEST_SELECT_FAIL;
+}
+
 /*Connect using Nonblocking - DTLS version*/
 static void NonBlockingDTLS_Connect(CYASSL* ssl)
 {
     int      ret = CyaSSL_connect(ssl);
     int      error = CyaSSL_get_error(ssl, 0);
     int	     sockfd = (int)CyaSSL_get_fd(ssl); 
-/*    int      select_ret;
-*    while (ret != SSL_SUCCESS && (error == SSL_ERROR_WANT_READ || 
-*				 error == SSL_WANT_WRITE)) {
-*        int currTimeout = 1;
-*	if (error == SSL_ERROR_WANT_READ)
-*	   printf("... client would read block\n");
-*	else
-*	    printf("... client would write block\n");
-*    	currTimeout = CyaSSL_dtls_get_current_timeout(ssl);
-*	select_ret = dnb_select(sockfd, currTimeout);
-*	if ( ( select_ret == TEST_RECV_READY) || 
-*					(select_ret == TEST_ERROR_READY)) {	
-*	    ret = CyaSSL_connect(ssl);
-*	    error = CyaSSL_get_error(ssl, 0);
-*	}
-*	else if (select_ret == TEST_TIMEOUT && !CyaSSL_dtls(ssl)) {
-*	    error = SSL_ERROR_WANT_READ;
-*	}
-*	else if (select_ret == TEST_TIMEOUT && CyaSSL_dtls(ssl) && 
-*					CyaSSL_dtls_got_timeout(ssl) >= 0) {
-*	    error = SSL_ERROR_WANT_READ;
-*	}
-*	else{
-*	    error = SSL_FATAL_ERROR;
-*	}
-*    }
-*/
+    int      select_ret;
+    while (ret != SSL_SUCCESS && (error == SSL_ERROR_WANT_READ || 
+				 error == SSL_ERROR_WANT_WRITE)) {
+        int currTimeout = 1;
+	if (error == SSL_ERROR_WANT_READ)
+	   printf("... client would read block\n");
+	else
+	    printf("... client would write block\n");
+    	currTimeout = CyaSSL_dtls_get_current_timeout(ssl);
+	select_ret = dnb_select(sockfd, currTimeout);
+	if ( ( select_ret == TEST_RECV_READY) || 
+					(select_ret == TEST_ERROR_READY)) {	
+	    ret = CyaSSL_connect(ssl);
+	    error = CyaSSL_get_error(ssl, 0);
+	}
+	else if (select_ret == TEST_TIMEOUT && !CyaSSL_dtls(ssl)) {
+	    error = 2;
+	}
+	else if (select_ret == TEST_TIMEOUT && CyaSSL_dtls(ssl) && 
+					CyaSSL_dtls_got_timeout(ssl) >= 0) {
+	    error = 2;
+	}
+	else{
+	    error = SSL_FATAL_ERROR;
+	}
+    }
+
     if (ret != SSL_SUCCESS)
-        err_sys("SSL_connect failed");
+        err_sys("SSL_connect failed with");
 }
 
 /*Main send and receive function*/

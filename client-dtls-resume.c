@@ -8,8 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAXLINE 4096
-#define SERV_PORT 11111 
+
+#define MAXLINE 	4096
+#define SERV_PORT 	11111 
 
 void err_sys (const char* x) {
     perror(x);
@@ -44,7 +45,6 @@ void DatagramClient (FILE* clientInput, CYASSL* ssl) {
 
         recvLine[n] = '\0';  
         fputs(recvLine, stdout);
-
 }
 
 int main (int argc, char** argv) {
@@ -56,7 +56,7 @@ int main (int argc, char** argv) {
     CYASSL_CTX* 	ctx = 0;
     CYASSL* 		sslResume = 0;
     CYASSL_SESSION*	session = 0;
-    int 		resumeSession = 0;
+    char* 		srTest = "testing session resume";
 
     if (argc != 2) {
         perror("usage: udpcli <IP address>\n");
@@ -66,7 +66,7 @@ int main (int argc, char** argv) {
     signal(SIGINT, sig_handler);
 
     CyaSSL_Init();
-    CyaSSL_Debugging_ON();
+/*    CyaSSL_Debugging_ON();*/
    
     if ( (ctx = CyaSSL_CTX_new(CyaDTLSv1_2_client_method())) == NULL){
         fprintf(stderr, "CyaSSL_CTX_new error.\n");
@@ -104,7 +104,6 @@ int main (int argc, char** argv) {
     
 
     DatagramClient(stdin, ssl);
-    char* srTest = "testing session resume";
     CyaSSL_write(ssl, srTest, sizeof(srTest));
     session = CyaSSL_get_session(ssl);
     sslResume = CyaSSL_new(ctx);

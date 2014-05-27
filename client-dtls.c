@@ -8,8 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAXLINE 4096
-#define SERV_PORT 11111 
+
+#define MAXLINE 	4096
+#define SERV_PORT 	11111 
 
 void err_sys (const char* x) {
     perror(x);
