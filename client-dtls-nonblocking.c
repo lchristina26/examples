@@ -147,7 +147,7 @@ int main (int argc, char** argv) {
 	exit(EXIT_FAILURE);
     }
 
-    if (CyaSSL_CTX_load_verify_locations(ctx,"../cyassl/certs/ca-cert.pem",0) 
+    if (CyaSSL_CTX_load_verify_locations(ctx,"/home/leah/Documents/wolfSSL/cyassl-3.0.0/certs/ca-cert.pem",0) 
 	    != SSL_SUCCESS) {
 	fprintf(stderr, 
 		"Error loading ../certs/ca-cert.pem, please check the file.\n");
