@@ -9,24 +9,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAXLINE 	4096
-#define SERV_PORT 	11111 
+#define MAXLINE   4096
+#define SERV_PORT 11111 
 
-void err_sys (const char* x) {
-    perror(x);
+void err_sys (const char* x) 
+{
+    printf("%s", x);
     exit(1);
 }
 
-void sig_handler (const int sig) {
+void sig_handler (const int sig) 
+{
     printf("\nSIGINT handled.\n");
     CyaSSL_Cleanup();
     exit(EXIT_SUCCESS);
 }
 
-void DatagramClient (FILE* clientInput, CYASSL* ssl) {
-
-    int     n = 0;
-    char    sendLine[MAXLINE], recvLine[MAXLINE - 1];
+/* Send and receive function */
+void DatagramClient (FILE* clientInput, CYASSL* ssl) 
+{
+    int  n = 0;
+    char sendLine[MAXLINE], recvLine[MAXLINE - 1];
 
      fgets(sendLine, MAXLINE, clientInput);
       
@@ -37,7 +40,7 @@ void DatagramClient (FILE* clientInput, CYASSL* ssl) {
 
        n = CyaSSL_read(ssl, recvLine, sizeof(recvLine)-1);
        
-       if (n < 0){
+       if (n < 0) {
             int readErr = CyaSSL_get_error(ssl, 0);
 	    if(readErr != SSL_ERROR_WANT_READ)
 		err_sys("CyaSSL_read failed");
@@ -47,25 +50,23 @@ void DatagramClient (FILE* clientInput, CYASSL* ssl) {
         fputs(recvLine, stdout);
 }
 
-int main (int argc, char** argv) {
-
+int main (int argc, char** argv)  
+{
     int     	sockfd = 0;
     struct  	sockaddr_in servAddr;
     const char* host = argv[1];
     CYASSL* 	ssl = 0;
     CYASSL_CTX* ctx = 0;
 
-    if (argc != 2) {
-        perror("usage: udpcli <IP address>\n");
-        exit(1);
-    }
+    if (argc != 2) 
+        err_sys("usage: udpcli <IP address>\n");
 
     signal(SIGINT, sig_handler);
 
     CyaSSL_Init();
-    /*CyaSSL_Debugging_ON();*/
+    /* CyaSSL_Debugging_ON(); */
    
-    if ( (ctx = CyaSSL_CTX_new(CyaDTLSv1_2_client_method())) == NULL){
+    if ( (ctx = CyaSSL_CTX_new(CyaDTLSv1_2_client_method())) == NULL) {
         fprintf(stderr, "CyaSSL_CTX_new error.\n");
         exit(EXIT_FAILURE);
     }
@@ -81,7 +82,7 @@ int main (int argc, char** argv) {
     if (ssl == NULL)
     	err_sys("unable to get ssl object");
     
-    bzero(&servAddr, sizeof(servAddr));
+    memset(&servAddr, sizeof(servAddr), 0);
     servAddr.sin_family = AF_INET;
     servAddr.sin_port = htons(SERV_PORT);
     inet_pton(AF_INET, host, &servAddr.sin_addr);
@@ -93,11 +94,11 @@ int main (int argc, char** argv) {
        err_sys("cannot create a socket."); 
 
     CyaSSL_set_fd(ssl, sockfd);
-    if (CyaSSL_connect(ssl) != SSL_SUCCESS){
-	int err1 = CyaSSL_get_error(ssl, 0);
-	char buffer[80];
-	printf("err = %d, %s\n", err1, CyaSSL_ERR_error_string(err1, buffer));
-	err_sys("SSL_connect failed");
+    if (CyaSSL_connect(ssl) != SSL_SUCCESS) {
+	    int err1 = CyaSSL_get_error(ssl, 0);
+	    char buffer[80];
+	    printf("err = %d, %s\n", err1, CyaSSL_ERR_error_string(err1, buffer));
+	    err_sys("SSL_connect failed");
     }
  
     DatagramClient(stdin, ssl);
@@ -109,3 +110,4 @@ int main (int argc, char** argv) {
 
     return 0;
 }
+

@@ -8,23 +8,24 @@
 #define MAXLINE   4096
 #define SERV_PORT 11111
 
-/*send and recieve message function */
+/* send and recieve message function */
 void DatagramClient (FILE* clientInput, int sockfd, 
-                     const struct sockaddr* pServAddr, socklen_t servLen){
+                     const struct sockaddr* servAddr, socklen_t servLen)
+{
 
-    int     n;
-    char    sendLine[MAXLINE], recvLine[MAXLINE +1];
+    int  n;
+    char sendLine[MAXLINE], recvLine[MAXLINE +1];
 
     while (fgets(sendLine, MAXLINE, clientInput) != NULL) {
         
-       if ( ( sendto(sockfd, sendLine, strlen(sendLine) - 1, 0, pServAddr, 
+       if ( ( sendto(sockfd, sendLine, strlen(sendLine) - 1, 0, servAddr, 
               servLen)) == -1) {
-            perror("error in sending");
+            printf("error in sending");
         }
 
 
        if ( (n = recvfrom(sockfd, recvLine, MAXLINE, 0, NULL, NULL)) == -1) {
-             perror("Error in receiving");   
+             printf("Error in receiving");   
         }
 
         recvLine[n] = 0;  
@@ -32,22 +33,23 @@ void DatagramClient (FILE* clientInput, int sockfd,
     }
 }
 
-int main(int argc, char** argv){
+int main(int argc, char** argv)
+{
 
-    int 	sockfd;
-    struct 	sockaddr_in servAddr;
+    int    sockfd;
+    struct sockaddr_in servAddr;
     
     if (argc != 2) {
-        perror("usage: udpcli <IP address>\n");
-        exit(1);
+        printf("usage: udpcli <IP address>\n");
+        return 1;
     }
 
     if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-       perror("cannot create a socket.");
-       exit(1);
+       printf("cannot create a socket.");
+       return 1;
     } 
 
-    bzero(&servAddr, sizeof(servAddr));
+    memset(&servAddr, sizeof(servAddr), 0);
     servAddr.sin_family = AF_INET;
     servAddr.sin_port = htons(SERV_PORT);
     inet_pton(AF_INET, argv[1], &servAddr.sin_addr);
@@ -57,3 +59,4 @@ int main(int argc, char** argv){
 
     return 0;
 }
+
