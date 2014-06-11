@@ -21,20 +21,7 @@ enum {
     TEST_ERROR_READY
 };
 
-void err_sys (const char* x) 
-{
-    printf("%s", x);
-    exit(1);
-}
-
-void sig_handler (const int sig) 
-{
-    printf("\nSIGINT handled.\n");
-    CyaSSL_Cleanup();
-    exit(EXIT_SUCCESS);
-}
-
-/* tcp select using dtls nonblocking function */
+/* Tcp select using dtls nonblocking function */
 static int dtls_select(int socketfd, int to_sec)
 {
 
@@ -95,33 +82,36 @@ static void NonBlockingDTLS_Connect(CYASSL* ssl)
 	    }
     }
 
-    if (ret != SSL_SUCCESS)
-	    err_sys("SSL_connect failed with");
+    if (ret != SSL_SUCCESS) {
+	    printf("SSL_connect failed with");
+    }
 }
 
 /* Main send and receive function */
-void DatagramClient (FILE* clientInput, CYASSL* ssl) 
+void DatagramClient (CYASSL* ssl) 
 {
     int  n = 0;
     char sendLine[MAXLINE], recvLine[MAXLINE - 1];
 
-    fgets(sendLine, MAXLINE, clientInput);
+    while (fgets(sendLine, MAXLINE, stdin) != NULL) {
 
-    while  ( ( CyaSSL_write(ssl, sendLine, strlen(sendLine))) != 
-	    strlen(sendLine)) {
-	err_sys("SSL_write failed");
+        while  ( ( CyaSSL_write(ssl, sendLine, strlen(sendLine))) != 
+	        strlen(sendLine)) {
+    	    printf("SSL_write failed");
+        }
+
+        while ( (n = CyaSSL_read(ssl, recvLine, sizeof(recvLine)-1)) <= 0) {
+
+	        int readErr = CyaSSL_get_error(ssl, 0);
+	        if(readErr != SSL_ERROR_WANT_READ)
+	            printf("CyaSSL_read failed");
+        }
+
+        recvLine[n] = '\0';  
+        fputs(recvLine, stdout);
     }
-
-    while ( (n = CyaSSL_read(ssl, recvLine, sizeof(recvLine)-1)) <= 0) {
-
-	    int readErr = CyaSSL_get_error(ssl, 0);
-	    if(readErr != SSL_ERROR_WANT_READ)
-	        err_sys("CyaSSL_read failed");
-    }
-
-    recvLine[n] = '\0';  
-    fputs(recvLine, stdout);
 }
+
 
 int main (int argc, char** argv) 
 {
@@ -133,51 +123,61 @@ int main (int argc, char** argv)
     CYASSL* 		sslResume = 0;
     CYASSL_SESSION*	session = 0;
     int     		resumeSession = 0;
-
-    if (argc != 2) 
-	    err_sys("usage: udpcli <IP address>\n");
-
-    signal(SIGINT, sig_handler);
+    char            cert_array[] = "../cyassl/certs/ca-cert.pem";
+    char*           certs = cert_array;
+    char*           srTest = "testing session resume";
+    
+    if (argc != 2) {
+	    printf("usage: udpcli <IP address>\n");
+        return 1;
+    }
 
     CyaSSL_Init();
-    /*    CyaSSL_Debugging_ON();*/
+
+    /* CyaSSL_Debugging_ON();*/
 
     if ( (ctx = CyaSSL_CTX_new(CyaDTLSv1_2_client_method())) == NULL) {
 	    fprintf(stderr, "CyaSSL_CTX_new error.\n");
-	    exit(EXIT_FAILURE);
+	    return(EXIT_FAILURE);
     }
 
-    if (CyaSSL_CTX_load_verify_locations(ctx,
-               "/home/leah/Documents/wolfSSL/cyassl-3.0.0/certs/ca-cert.pem",0) 
-	    != SSL_SUCCESS) {
-	    fprintf(stderr, 
-		        "Error loading ../certs/ca-cert.pem, please check the file.\n");
-	    exit(EXIT_FAILURE);
+    if (CyaSSL_CTX_load_verify_locations(ctx,certs, 0) != SSL_SUCCESS) {
+	    fprintf(stderr, "Error loading %s, please check the file.\n", certs);
+	    return(EXIT_FAILURE);
     }
 
     ssl = CyaSSL_new(ctx);
-    if (ssl == NULL)
-	    err_sys("unable to get ssl object");
+    if (ssl == NULL) {
+	    printf("unable to get ssl object");
+        return 1;
+    }
 
-    memset(&servAddr, sizeof(servAddr), 0);
+    memset(&servAddr, 0, sizeof(servAddr));
     servAddr.sin_family = AF_INET;
     servAddr.sin_port = htons(SERV_PORT);
-    inet_pton(AF_INET, host, &servAddr.sin_addr);
+    if (inet_pton(AF_INET, host, &servAddr.sin_addr) < 1) {
+        printf("Error and/or invalid IP address");
+        return 1;
+    }
 
     CyaSSL_dtls_set_peer(ssl, &servAddr, sizeof(servAddr));
 
-    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) 
-    	err_sys("cannot create a socket."); 
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) { 
+    	printf("cannot create a socket."); 
+        return 1;
+    }
 
     CyaSSL_set_fd(ssl, sockfd);
     CyaSSL_set_using_nonblock(ssl, 1);
     fcntl(sockfd, F_SETFL, O_NONBLOCK);
     NonBlockingDTLS_Connect(ssl);
 
-    DatagramClient(stdin, ssl);
-    char* srTest = "testing session resume";
-    while ( (CyaSSL_write(ssl, srTest, sizeof(srTest))) != sizeof(srTest)) 
-	    err_sys("failed to write");
+    DatagramClient(ssl);
+    while ( (CyaSSL_write(ssl, srTest, sizeof(srTest))) != sizeof(srTest)) { 
+	    printf("failed to write");
+        return 1;
+    }
+
     session = CyaSSL_get_session(ssl);
     sslResume = CyaSSL_new(ctx);
 
@@ -185,15 +185,20 @@ int main (int argc, char** argv)
     CyaSSL_free(ssl);
     close(sockfd);
 
-    memset(&servAddr, sizeof(servAddr), 0);
+    memset(&servAddr, 0, sizeof(servAddr));
     servAddr.sin_family = AF_INET;
     servAddr.sin_port = htons(SERV_PORT);
-    inet_pton(AF_INET, host, &servAddr.sin_addr);
+    if (inet_pton(AF_INET, host, &servAddr.sin_addr) < 1) {
+        printf("Error and/or invalid IP address");
+        return 1;
+    }
 
     CyaSSL_dtls_set_peer(sslResume, &servAddr, sizeof(servAddr));
 
-    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) 
-	   err_sys("cannot create a socket."); 
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) { 
+	   printf("cannot create a socket.");
+    return 1; 
+    }
 
     CyaSSL_set_fd(sslResume, sockfd);
     CyaSSL_set_session(sslResume, session);
@@ -206,13 +211,17 @@ int main (int argc, char** argv)
     else
 	    printf("didn't reuse session id!!!\n");
 
-    DatagramClient(stdin, sslResume);
-    while ((CyaSSL_write(sslResume, srTest, sizeof(srTest))) != sizeof(srTest)) 
-	    err_sys("failed to write");
+    DatagramClient(sslResume);
+    while ((CyaSSL_write(sslResume, srTest, sizeof(srTest))) != sizeof(srTest))
+    { 
+	    printf("failed to write");
+        return 1;
+    }
     sleep(1);
 
     CyaSSL_shutdown(sslResume);
     CyaSSL_free(sslResume);
+   
     close(sockfd);
     CyaSSL_CTX_free(ctx);
     CyaSSL_Cleanup();
